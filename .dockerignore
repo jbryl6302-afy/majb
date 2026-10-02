@@ -1,0 +1,5 @@
+.git
+*.md
+.github
+.vscode
+node_modules

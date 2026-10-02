@@ -1,0 +1,24 @@
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# ملفات المحررات
+.vscode/
+.idea/
+
+# ملفات مؤقتة وlogs
+*.log
+*.tmp
+*.bak
+temp/
+tmp/
+
+# متغيرات البيئة والأسرار (مهم جدًا)
+.env
+*.key
+secrets.json
+
+# الداتا الكبيرة
+data/
+*.csv
+*.zip
