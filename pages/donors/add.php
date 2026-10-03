@@ -3,6 +3,20 @@ require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 if (!isLoggedIn() || (!hasRole('LabTechnician') && !hasRole('Admin'))) redirect('../../dashboard.php');
 
+// ─── توليد رقم الكيس تلقائياً: BAG-2026-0001 ───
+if (!function_exists('generateBagNumber')) {
+    function generateBagNumber(PDO $pdo): string {
+        $prefix = 'BAG-' . date('Y') . '-';
+        $stmt = $pdo->prepare("
+            SELECT MAX(CAST(SUBSTRING_INDEX(bag_number, '-', -1) AS UNSIGNED))
+            FROM Donors WHERE bag_number LIKE ?
+        ");
+        $stmt->execute([$prefix . '%']);
+        $next = ((int)$stmt->fetchColumn()) + 1;
+        return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
+    }
+}
+
 $pageTitle = 'تبرع جديد';
 $success = $error = '';
 
@@ -16,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ─── جمع البيانات ───
     $full_name      = trim($_POST['full_name'] ?? '');
-    $bag_number     = trim($_POST['bag_number'] ?? '');
+    $bag_number     = generateBagNumber($pdo); // تلقائي
     $age            = intval($_POST['age'] ?? 0);
     $weight         = floatval($_POST['weight'] ?? 0);
     $blood_type     = $_POST['blood_type'] ?? '';
@@ -65,23 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // ─── التحقق 4: رقم الكيس فريد ───
-    if (empty($bag_number)) {
-        $errors[] = "رقم الكيس مطلوب";
-    } else {
-        $check = $pdo->prepare("SELECT donor_id FROM Donors WHERE bag_number = ?");
-        $check->execute([$bag_number]);
-        if ($check->fetch()) {
-            $errors[] = "رقم الكيس '$bag_number' مستخدم مسبقاً";
-        }
-    }
-
-    // ─── التحقق 5: الاسم ───
+    // ─── التحقق 4: الاسم ───
     if (empty($full_name)) {
         $errors[] = "الاسم الكامل مطلوب";
     }
 
-    // ─── التحقق 6: قاعدة التدخين 🚬 ───
+    // ─── التحقق 5: قاعدة التدخين 🚬 ───
     // المدخن يُمنع من التدخين لمدة ساعة كاملة قبل التبرع
     if ($smoker === 'Yes') {
         if (empty($last_smoke_time)) {
@@ -233,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
                 $success = "✅ نجح فحص العينة قبل التبرع - تم <strong>السماح بالتبرع</strong> وإنشاء الكيس!<br>"
-                         . "رقم الكيس: $bag_id | QR: $qr_code"
+                         . "رقم الكيس: $bag_number | QR: $qr_code"
                          . ($smoker === 'Yes' ? "<br>🚬 المتبرع مدخن - تم التأكد من الامتناع عن التدخين لمدة ساعة كاملة." : "");
             }
             // 4️⃣ نتائج العينة غير سليمة ⬅️ الرفض وعدم إنشاء كيس
@@ -288,12 +291,12 @@ require_once '../../includes/header.php';
                             <input type="text" name="full_name" class="form-control" required>
                         </div>
 
-                        <!-- رقم الكيس (بدل الرقم القومي) -->
+                        <!-- رقم الكيس (تلقائي) -->
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">رقم الكيس *</label>
-                            <input type="text" name="bag_number" class="form-control"
-                                   placeholder="مثال: BAG-2026-001" required>
-                            <small class="text-muted">رقم الكيس بدلاً من الرقم الوطني</small>
+                            <label class="form-label">رقم الكيس</label>
+                            <input type="text" class="form-control"
+                                   value="<?php echo htmlspecialchars(generateBagNumber($pdo)); ?>" disabled>
+                            <small class="text-muted">يتولد تلقائياً عند الحفظ</small>
                         </div>
 
                         <!-- العمر -->
@@ -471,7 +474,7 @@ document.getElementById('donorForm').addEventListener('submit', function(e) {
         if (diff < 90) errors.push('لم يمر 3 أشهر على آخر تبرع');
     }
 
-    // 🚬 قاعدة التدخين: ساعة كامدة قبل التبرع
+    // 🚬 قاعدة التدخين: ساعة كاملة قبل التبرع
     if (smoker === 'Yes') {
         if (!lastSmoke) {
             errors.push('المتبرع مدخن - حدد وقت آخر سيجارة');
