@@ -10,6 +10,13 @@ rm -f /var/www/html/index.html
 # ---------- 1) الموديل: نستخدم model.pkl الموجود، ولا نعيد التدريب ----------
 cd /var/www/html/ai_model
 
+if [ -f "model.pkl" ]; then
+    python3 -c "import pickle; pickle.load(open('model.pkl','rb'))" 2>/dev/null || {
+        echo "model.pkl cannot be loaded (version mismatch?), removing it..."
+        rm -f model.pkl
+    }
+fi
+
 if [ ! -f "model.pkl" ]; then
     echo "model.pkl missing, creating fallback model..."
     python3 -c "
@@ -64,6 +71,14 @@ APP_PORT="${PORT:-80}"
 echo "Configuring Apache to listen on port ${APP_PORT}..."
 sed -i "s/^Listen .*/Listen ${APP_PORT}/" /etc/apache2/ports.conf
 sed -i "s/<VirtualHost \*:[0-9]*>/<VirtualHost *:${APP_PORT}>/" /etc/apache2/sites-available/000-default.conf
+
+# 'service' يشغّل Apache ببيئة نظيفة، فنمرّر متغيرات الاتصال عبر envvars ليقرأها PHP بـ getenv()
+echo "Passing environment variables to Apache..."
+for v in DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD DB_SSL DB_SSL_CA DB_DRIVER; do
+    if [ -n "${!v}" ]; then
+        printf 'export %s=%q\n' "$v" "${!v}" >> /etc/apache2/envvars
+    fi
+done
 
 echo "Starting Apache..."
 service apache2 restart

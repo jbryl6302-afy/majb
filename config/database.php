@@ -1,25 +1,29 @@
 <?php
 /**
  * Blood Bank 2 - Database Configuration
- * Supports both local (XAMPP/MySQL) and Render (Docker/PostgreSQL) environments
+ * الافتراضي: MySQL (محلي XAMPP أو TiDB Cloud / أي MySQL بعيد)
+ * PostgreSQL يشتغل فقط لو حددت DB_DRIVER=pgsql صراحةً
+ *
+ * متغيرات البيئة (للاستضافة):
+ *   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+ *   DB_SSL=1            -> تفعيل تشفير SSL (مطلوب لـ TiDB Cloud)
+ *   DB_SSL_CA=/path     -> (اختياري) مسار شهادة CA، الافتراضي شهادات النظام
+ *   DB_DRIVER=pgsql     -> (اختياري) لاستخدام PostgreSQL
  */
 
-// ======================== 🌍 ENVIRONMENT DETECTION ========================
+// ======================== 🌍 DRIVER SELECTION ========================
 
-$isRender = false;
-
-// Render بيحط DATABASE_URL أو DB_HOST كـ Environment Variable
-if (getenv('DATABASE_URL') || getenv('RENDER')) {
-    $isRender = true;
-}
+$dbDriverName = strtolower(getenv('DB_DRIVER') ?: 'mysql');
+$usePg = ($dbDriverName === 'pgsql');
+$remoteHost = getenv('DB_HOST'); // لو موجود = اتصال بعيد (TiDB وغيره)
 
 // ======================== 🔗 DATABASE CONNECTION ========================
 
 try {
-    if ($isRender) {
-        // ====== RENDER (PostgreSQL) ======
+    if ($usePg) {
+        // ====== PostgreSQL (اختياري) ======
         $dbUrl = getenv('DATABASE_URL');
-        
+
         if ($dbUrl) {
             $parsed = parse_url($dbUrl);
             $host = $parsed['host'];
@@ -28,7 +32,6 @@ try {
             $pass = $parsed['pass'];
             $dbname = ltrim($parsed['path'], '/');
         } else {
-            // لو المتغيرات منفصلة
             $host = getenv('DB_HOST') ?: 'localhost';
             $port = getenv('DB_PORT') ?: '5432';
             $user = getenv('DB_USER') ?: 'postgres';
@@ -44,41 +47,59 @@ try {
         ]);
 
     } else {
-        // ====== LOCAL (XAMPP/MySQL) ======
+        // ====== MySQL (محلي أو بعيد مثل TiDB Cloud) ======
         $host = getenv('DB_HOST') ?: 'localhost';
+        $port = getenv('DB_PORT') ?: '3306';
         $dbname = getenv('DB_NAME') ?: 'bloodbank2_db';
         $user = getenv('DB_USER') ?: 'root';
         $pass = getenv('DB_PASSWORD') ?: '';
 
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
+
+        // SSL (مطلوب لـ TiDB Cloud)
+        if (getenv('DB_SSL') === '1') {
+            $options[PDO::MYSQL_ATTR_SSL_CA] = getenv('DB_SSL_CA') ?: '/etc/ssl/certs/ca-certificates.crt';
+            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+        }
+
+        $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
+
         try {
-            $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ]);
+            $pdo = new PDO($dsn, $user, $pass, $options);
         } catch (PDOException $e) {
-            // If database doesn't exist, try to create it (Local only)
-            try {
-                $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $user, $pass, [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                ]);
-                $pdo->exec("CREATE DATABASE IF NOT EXISTS $dbname CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                $pdo->exec("USE $dbname");
-            } catch (PDOException $e2) {
-                die("Database connection failed: " . $e2->getMessage());
+            // إنشاء الداتابيس تلقائياً فقط في الوضع المحلي (بدون DB_HOST)
+            if (!$remoteHost) {
+                try {
+                    $pdo = new PDO("mysql:host=$host;port=$port;charset=utf8mb4", $user, $pass, [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    ]);
+                    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                    $pdo->exec("USE `$dbname`");
+                    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+                } catch (PDOException $e2) {
+                    die("Database connection failed.");
+                }
+            } else {
+                // لا تعرض تفاصيل الخطأ للزوار (فيها معلومات اتصال). التفاصيل في سجل السيرفر.
+                error_log("DB connection failed: " . $e->getMessage());
+                die("Database connection failed.");
             }
         }
     }
 
 } catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+    error_log("DB connection failed: " . $e->getMessage());
+    die("Database connection failed.");
 }
 
 // ======================== 🛠️ DATABASE HELPER FUNCTIONS ========================
 
 /**
  * Get the database driver type (mysql or pgsql)
- * Use this when writing SQL that differs between MySQL and PostgreSQL
  */
 function dbDriver() {
     global $pdo;
@@ -86,48 +107,38 @@ function dbDriver() {
 }
 
 /**
- * Check if running on Render
+ * ملاحظة: اسم الدالة موروث من الكود القديم. معناها الآن "هل نستخدم PostgreSQL؟"
+ * (كانت تعني "هل نحن على Render؟"). تم الإبقاء على الاسم حتى لا ينكسر باقي الكود.
  */
 function isRender() {
-    return (getenv('DATABASE_URL') || getenv('RENDER'));
+    return strtolower(getenv('DB_DRIVER') ?: 'mysql') === 'pgsql';
 }
 
 /**
  * Auto-increment column syntax
- * MySQL: AUTO_INCREMENT
- * PostgreSQL: SERIAL
  */
 function autoIncrement() {
     return isRender() ? 'SERIAL' : 'AUTO_INCREMENT';
 }
 
-/**
- * Current timestamp default
- * MySQL: CURRENT_TIMESTAMP
- * PostgreSQL: CURRENT_TIMESTAMP (same)
- */
 function currentTimestamp() {
     return 'CURRENT_TIMESTAMP';
 }
 
 /**
  * Quote identifier (table/column names)
- * MySQL: `name`
- * PostgreSQL: "name"
  */
 function quoteId($name) {
     return isRender() ? '"' . $name . '"' : '`' . $name . '`';
 }
 
 /**
- * LIMIT syntax (same in both, but useful for OFFSET)
- * MySQL: LIMIT offset, count
- * PostgreSQL: LIMIT count OFFSET offset
+ * LIMIT syntax
  */
 function limitSql($count, $offset = null) {
     if ($offset !== null) {
-        return isRender() 
-            ? "LIMIT $count OFFSET $offset" 
+        return isRender()
+            ? "LIMIT $count OFFSET $offset"
             : "LIMIT $offset, $count";
     }
     return "LIMIT $count";
@@ -135,8 +146,6 @@ function limitSql($count, $offset = null) {
 
 /**
  * String concatenation
- * MySQL: CONCAT(a, b)
- * PostgreSQL: a || b
  */
 function concatSql(...$parts) {
     if (isRender()) {
@@ -147,8 +156,6 @@ function concatSql(...$parts) {
 
 /**
  * Random ordering
- * MySQL: ORDER BY RAND()
- * PostgreSQL: ORDER BY RANDOM()
  */
 function randomOrder() {
     return isRender() ? 'RANDOM()' : 'RAND()';
@@ -156,12 +163,9 @@ function randomOrder() {
 
 /**
  * Date formatting
- * MySQL: DATE_FORMAT(date, format)
- * PostgreSQL: TO_CHAR(date, format)
  */
 function dateFormatSql($column, $format) {
     if (isRender()) {
-        // Convert MySQL format to PostgreSQL format if needed
         $pgFormat = str_replace(['%Y', '%m', '%d', '%H', '%i', '%s'], ['YYYY', 'MM', 'DD', 'HH24', 'MI', 'SS'], $format);
         return "TO_CHAR($column, '$pgFormat')";
     }
