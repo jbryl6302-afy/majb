@@ -178,7 +178,7 @@ new Chart(ctx, {
         labels: <?php echo json_encode(array_column($bloodTypes, 'blood_type')); ?>,
         datasets: [{
             data: <?php echo json_encode(array_column($bloodTypes, 'count')); ?>,
-            backgroundColor: ['#B03A2E', '#301805', '#C08A3E', '#6B8E5A', '#A9784D', '#ac9380', '#D8A47F', '#4A2C17']
+            backgroundColor: ['#B03A2E', '#301805', '#C08A3E', '#6B8E5A', '#A9784D', '#ac9380', '#c5b4a9', '#4A2C17']
         }]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
