@@ -77,11 +77,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <form method="POST">
                         <div class="mb-3">
                             <label class="form-label"><i class="fas fa-envelope"></i> البريد الإلكتروني</label>
-                            <input type="email" name="email" class="form-control" placeholder="admin@bloodbank2.com" required>
+                            <input type="email" name="email" class="form-control" placeholder="ادخل البريد " required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label"><i class="fas fa-lock"></i> كلمة المرور</label>
-                            <input type="password" name="password" class="form-control" placeholder="password" required>
+                            <input type="password" name="password" class="form-control" placeholder="كلمة المرور" required>
                         </div>
                         <button type="submit" class="btn btn-login text-white w-100 py-2 fw-bold">
                             تسجيل الدخول
