@@ -12,7 +12,7 @@ $stats = [
     'discarded'        => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Discarded'")->fetchColumn(),
     'expired'          => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Expired'")->fetchColumn(),
     'pending_requests' => $pdo->query("SELECT COUNT(*) FROM BloodRequests WHERE status='Pending'")->fetchColumn(),
-    'wasted_risk'        => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Available' AND expiry_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
+    'wasted_risk'      => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Available' AND expiry_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
 ];
 
 $bloodTypes = $pdo->query("SELECT blood_type, COUNT(*) as count FROM BloodBags WHERE status='Available' GROUP BY blood_type ORDER BY blood_type")->fetchAll();
@@ -21,11 +21,79 @@ $recentTracking = $pdo->query("SELECT t.*, b.qr_code, u.full_name as performer F
 require_once 'includes/header.php';
 ?>
 
+<style>
+/* ═══ لوحة الألوان ═══
+   البني = هيكل الصفحة (القائمة والعناوين)
+   الألوان الدلالية = حالات الأكياس، بدرجات هادئة تنسجم مع البني */
+:root {
+    --brown-900: #3B2410;   /* القائمة الجانبية */
+    --brown-700: #5A3921;   /* عناوين البطاقات */
+    --brown-500: #7A4E2D;   /* إجمالي الأكياس */
+    --sand-100:  #F5E9DC;   /* نص فاتح على البني */
+    --sand-300:  #E8C98A;   /* طلبات معلقة (خلفية فاتحة) */
+
+    --ok:      #3F6E3A;     /* متاحة - أخضر */
+    --bad:     #A93226;     /* منتهية - أحمر */
+    --dead:    #2B2522;     /* تالفة - فحمي */
+    --warn:    #A85A0C;     /* مهددة بالهدر - عنبري/برتقالي */
+    --warn-bg: #FCEFD2;     /* خلفية التنبيهات */
+    --warn-bd: #E3B14F;
+}
+
+/* ─── القائمة الجانبية ─── */
+.sidebar { background: var(--brown-900) !important; }
+.sidebar a {
+    color: var(--sand-100) !important;
+    border-right: 4px solid transparent;
+    font-size: 0.95rem;
+}
+.sidebar a:hover { background: rgba(255,255,255,.08) !important; }
+.sidebar a.active {
+    background: rgba(232,201,138,.18) !important;
+    border-right-color: var(--sand-300);
+    font-weight: 700;
+    color: #fff !important;
+}
+.sidebar .role-label { color: #D9C3A8; }
+
+/* ─── كروت الإحصائيات ─── */
+.stat-card { border: 0; }
+.stat-card.s-total   { background: var(--brown-500); color: #fff; }
+.stat-card.s-ok      { background: var(--ok);        color: #fff; }
+.stat-card.s-dead    { background: var(--dead);      color: #fff; }
+.stat-card.s-bad     { background: var(--bad);       color: #fff; }
+.stat-card.s-risk    { background: var(--warn);      color: #fff; }
+.stat-card.s-pending { background: var(--sand-300);  color: var(--brown-900); }
+.stat-card .stat-icon { opacity: .35; }
+
+/* ─── عناوين البطاقات ─── */
+.card-header.hdr-brown { background: var(--brown-700) !important; color: var(--sand-100) !important; }
+
+/* ─── التنبيهات (المخزون المنخفض = تحذير عنبري) ─── */
+#alerts-container .alert-info,
+#alerts-container .alert-warning {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-bd);
+    color: #5C3A06;
+}
+#alerts-container .alert-danger {
+    background: #FBE3DF; border: 1px solid #E29A91; color: #6E1F17;
+}
+
+/* ─── شارات الإجراءات في جدول النشاطات ─── */
+.badge-action {
+    background: #EFE0CC;
+    color: var(--brown-900);
+    font-weight: 600;
+    border: 1px solid #D9C3A8;
+}
+</style>
+
 <div class="d-flex">
     <div class="sidebar">
         <div class="p-3 text-white text-center border-bottom">
             <h5><i class="fas fa-tint text-danger"></i> بنك الدم</h5>
-            <small class="text-muted"><?php echo $_SESSION['role']; ?></small>
+            <small class="role-label"><?php echo $_SESSION['role']; ?></small>
         </div>
         <a href="dashboard.php" class="active"><i class="fas fa-home"></i> الرئيسية</a>
         <a href="pages/donors/list.php"><i class="fas fa-user-plus"></i> المتبرعون</a>
@@ -40,15 +108,14 @@ require_once 'includes/header.php';
     </div>
 
     <div class="main-content w-100">
-        <h3 class="mb-4">مرحباً، <?php echo htmlspecialchars($_SESSION['full_name']); ?> 
+        <h3 class="mb-4">مرحباً، <?php echo htmlspecialchars($_SESSION['full_name']); ?>
             <span class="badge bg-primary"><?php echo $_SESSION['role']; ?></span>
         </h3>
 
         <!-- ─── كروت الإحصائيات ─── -->
         <div class="row mb-4">
-            <!-- إجمالي الأكياس -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card bg-primary text-white">
+                <div class="card stat-card s-total">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <h6>إجمالي الأكياس</h6>
@@ -58,9 +125,8 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <!-- المتاحة -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card bg-success text-white">
+                <div class="card stat-card s-ok">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <h6>متاحة</h6>
@@ -70,9 +136,8 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <!-- 🆕 التالفة (فحوصات إيجابية) -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card bg-dark text-white">
+                <div class="card stat-card s-dead">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <h6>تالفة</h6>
@@ -82,9 +147,8 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <!-- منتهية الصلاحية -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card bg-danger text-white">
+                <div class="card stat-card s-bad">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <h6>منتهية الصلاحية</h6>
@@ -96,10 +160,10 @@ require_once 'includes/header.php';
             </div>
         </div>
 
-        <!-- صف ثاني: طلبات معلقة -->
+        <!-- صف ثاني -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">
-                <div class="card stat-card bg-secondary text-white">
+                <div class="card stat-card s-risk">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <h6>مهددة بالهدر (7 أيام)</h6>
@@ -110,7 +174,7 @@ require_once 'includes/header.php';
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card bg-warning text-dark">
+                <div class="card stat-card s-pending">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <h6>طلبات معلقة</h6>
@@ -125,7 +189,7 @@ require_once 'includes/header.php';
         <div class="row">
             <div class="col-md-6 mb-4">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white">
+                    <div class="card-header hdr-brown">
                         <i class="fas fa-chart-pie"></i> توزيع فصائل الدم
                     </div>
                     <div class="card-body">
@@ -135,7 +199,7 @@ require_once 'includes/header.php';
             </div>
             <div class="col-md-6 mb-4">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white">
+                    <div class="card-header hdr-brown">
                         <i class="fas fa-bell"></i> التنبيهات الذكية
                     </div>
                     <div class="card-body" id="alerts-container">
@@ -146,7 +210,7 @@ require_once 'includes/header.php';
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">
+            <div class="card-header hdr-brown">
                 <i class="fas fa-history"></i> آخر النشاطات
             </div>
             <div class="card-body">
@@ -156,7 +220,7 @@ require_once 'includes/header.php';
                         <?php foreach ($recentTracking as $log): ?>
                         <tr>
                             <td><?php echo formatDate($log['log_time']); ?></td>
-                            <td><span class="badge bg-info"><?php echo $log['action']; ?></span></td>
+                            <td><span class="badge badge-action"><?php echo $log['action']; ?></span></td>
                             <td><?php echo $log['qr_code'] ?? 'غير متوفر'; ?></td>
                             <td><?php echo $log['location']; ?></td>
                             <td><?php echo $log['performer'] ?? 'النظام'; ?></td>
@@ -178,7 +242,10 @@ new Chart(ctx, {
         labels: <?php echo json_encode(array_column($bloodTypes, 'blood_type')); ?>,
         datasets: [{
             data: <?php echo json_encode(array_column($bloodTypes, 'count')); ?>,
-            backgroundColor: ['#B03A2E', '#301805', '#C08A3E', '#6B8E5A', '#A9784D', '#ac9380', '#c5b4a9', '#4A2C17']
+            // ألوان متمايزة لكل فصيلة، من نفس العائلة الدافئة
+            backgroundColor: ['#A93226', '#3B2410', '#C9962F', '#3F6E3A', '#8B5E3C', '#D98E73', '#7F8C8D', '#E8C98A'],
+            borderColor: '#FFFDF8',
+            borderWidth: 2
         }]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
