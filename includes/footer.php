@@ -8,12 +8,12 @@
     left: 16px !important;
     right: auto !important;
     z-index: 1050;
-    background: #5A3921; color: #F5E9DC;
+    background: #2C3E50; color: #ffffff;
     padding: 10px 18px; border-radius: 999px;
     box-shadow: 0 4px 12px rgba(0,0,0,.3);
     text-decoration: none; font-weight: 600;
 }
-.back-home:hover { background: #3B2410; color: #fff; }
+.back-home:hover { background: #3A4D63; color: #fff; }
 body { padding-bottom: 70px; }
 </style>
 <a href="/dashboard.php" class="back-home">

@@ -21,18 +21,6 @@ $recentTracking = $pdo->query("SELECT t.*, b.qr_code, u.full_name as performer F
 require_once 'includes/header.php';
 ?>
 
-<style>
-/* القائمة الجانبية بلون أزرق رمادي داكن */
-.sidebar { background: #2C3E50 !important; }
-.sidebar a { color: #fff !important; border-right: 4px solid transparent; }
-.sidebar a:hover { background: rgba(255,255,255,.08) !important; }
-.sidebar a.active {
-    background: #3A4D63 !important;
-    border-right-color: #DC3545;
-    font-weight: 700;
-}
-</style>
-
 <div class="d-flex">
     <div class="sidebar">
         <div class="p-3 text-white text-center border-bottom">

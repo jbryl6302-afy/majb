@@ -118,7 +118,7 @@ require_once '../../includes/header.php';
                 datasets: [{
                     label: 'الوحدات المتوقعة',
                     data: <?php echo json_encode(array_column($predictions, 'predicted_units')); ?>,
-                    backgroundColor: '#B03A2E',
+                    backgroundColor: '#DC3545',
                     borderRadius: 5
                 }]
             },

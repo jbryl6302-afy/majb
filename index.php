@@ -32,13 +32,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>بنك الدم - تسجيل الدخول</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: "Cairo", sans-serif; background: linear-gradient(135deg, #f7f5f3 0%, #f3eeea 100%); min-height: 100vh; }
+        body { font-family: "Cairo", sans-serif; background: linear-gradient(135deg, #2C3E50 0%, #3A4D63 100%); min-height: 100vh; }
         .login-box { background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
-        .btn-login { background: #e6370c; border: none; }
-        .btn-login:hover { background: #e94c0e; }
-        .blood-icon { font-size: 3rem; color: #B03A2E; }
+        .btn-login { background: #2C3E50; border: none; }
+        .btn-login:hover { background: #3A4D63; }
+        .blood-icon { font-size: 3rem; color: #DC3545; }
         .login-box { position: relative; }
         .bushra-stamp {
             position: absolute;
@@ -48,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-family: "Cairo", sans-serif;
             font-weight: 700;
             font-size: 1.1rem;
-            color: #B03A2E;
-            border: 2px solid #B03A2E;
+            color: #DC3545;
+            border: 2px solid #DC3545;
             border-radius: 50%;
             width: 60px;
             height: 60px;

@@ -29,7 +29,7 @@ if (!$t) die('❌ عملية النقل غير موجودة');
         td:first-child { color: #B03A2E; font-weight: bold; width: 40%; }
         .sig { display: flex; justify-content: space-between; margin-top: 25px; font-size: 11px; color: #444; }
         .sig div { text-align: center; width: 45%; border-top: 1px solid #999; padding-top: 5px; }
-        .print-btn { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #8B5E3C; color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 16px; cursor: pointer; }
+        .print-btn { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2C3E50; color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 16px; cursor: pointer; }
         @media print { body { background: white; } .sheet { border-color: #000; } .print-btn { display: none; } }
         @page { size: A6; margin: 0; }
     </style>
