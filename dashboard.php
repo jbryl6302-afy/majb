@@ -12,7 +12,7 @@ $stats = [
     'discarded'        => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Discarded'")->fetchColumn(),
     'expired'          => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Expired'")->fetchColumn(),
     'pending_requests' => $pdo->query("SELECT COUNT(*) FROM BloodRequests WHERE status='Pending'")->fetchColumn(),
-    'wasted_risk'        => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Available' AND expiry_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
+    'wasted_risk'      => $pdo->query("SELECT COUNT(*) FROM BloodBags WHERE status='Available' AND expiry_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
 ];
 
 $bloodTypes = $pdo->query("SELECT blood_type, COUNT(*) as count FROM BloodBags WHERE status='Available' GROUP BY blood_type ORDER BY blood_type")->fetchAll();
@@ -20,6 +20,18 @@ $recentTracking = $pdo->query("SELECT t.*, b.qr_code, u.full_name as performer F
 
 require_once 'includes/header.php';
 ?>
+
+<style>
+/* القائمة الجانبية بلون أزرق رمادي داكن */
+.sidebar { background: #2C3E50 !important; }
+.sidebar a { color: #fff !important; border-right: 4px solid transparent; }
+.sidebar a:hover { background: rgba(255,255,255,.08) !important; }
+.sidebar a.active {
+    background: #3A4D63 !important;
+    border-right-color: #DC3545;
+    font-weight: 700;
+}
+</style>
 
 <div class="d-flex">
     <div class="sidebar">
@@ -40,13 +52,12 @@ require_once 'includes/header.php';
     </div>
 
     <div class="main-content w-100">
-        <h3 class="mb-4">مرحباً، <?php echo htmlspecialchars($_SESSION['full_name']); ?> 
+        <h3 class="mb-4">مرحباً، <?php echo htmlspecialchars($_SESSION['full_name']); ?>
             <span class="badge bg-primary"><?php echo $_SESSION['role']; ?></span>
         </h3>
 
         <!-- ─── كروت الإحصائيات ─── -->
         <div class="row mb-4">
-            <!-- إجمالي الأكياس -->
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-primary text-white">
                     <div class="card-body d-flex justify-content-between align-items-center">
@@ -58,7 +69,6 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <!-- المتاحة -->
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-success text-white">
                     <div class="card-body d-flex justify-content-between align-items-center">
@@ -70,7 +80,6 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <!-- 🆕 التالفة (فحوصات إيجابية) -->
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-dark text-white">
                     <div class="card-body d-flex justify-content-between align-items-center">
@@ -82,7 +91,6 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <!-- منتهية الصلاحية -->
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-danger text-white">
                     <div class="card-body d-flex justify-content-between align-items-center">
@@ -96,7 +104,7 @@ require_once 'includes/header.php';
             </div>
         </div>
 
-        <!-- صف ثاني: طلبات معلقة -->
+        <!-- صف ثاني -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-secondary text-white">
@@ -178,7 +186,7 @@ new Chart(ctx, {
         labels: <?php echo json_encode(array_column($bloodTypes, 'blood_type')); ?>,
         datasets: [{
             data: <?php echo json_encode(array_column($bloodTypes, 'count')); ?>,
-           backgroundColor: ['#A93226', '#3B2410', '#C9962F', '#3F6E3A', '#8B5E3C', '#D98E73', '#7F8C8D', '#E8C98A'],
+                        backgroundColor: ['#DC3545', '#0D6EFD', '#198754', '#FFC107', '#6C757D', '#0DCAF0', '#212529', '#FD7E14']
         }]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
