@@ -48,7 +48,7 @@ require_once '../../includes/header.php';
                                 <?php endif; ?>
                             </td>
                         </tr>
-                        <a href="dashboard.php" class="active"><i class="fas fa-home"></i> الرئيسية</a>
+                        
                         <?php endforeach; ?>
                     </tbody>
                 </table>
