@@ -165,7 +165,7 @@ $qrUrl = getQrCodeUrl($bag['qr_code'], 220);
 <body>
     <div class="sticker">
         <div class="sticker-header">
-            <h3><i class="fas fa-tint"></i> بنك الدم الذكي</h3>
+            <h3><i class="fas fa-tint"></i> بنك الدم المركزي</h3>
             <small>ملصق كيس دم معتمد | Smart Blood Bank</small>
         </div>
 

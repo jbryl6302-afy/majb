@@ -6,11 +6,24 @@ if (!isLoggedIn() || !hasRole('Doctor')) redirect('../../dashboard.php');
 $pageTitle = 'طلب دم جديد';
 $success = $error = '';
 
+// [جديد] قائمة المستشفيات + مستشفى الدكتور الحالي (إن وجد)
+$hospitals = $pdo->query("SELECT hospital_id, hospital_name FROM Hospitals ORDER BY hospital_name")->fetchAll();
+$stmt = $pdo->prepare("SELECT hospital_id FROM users WHERE user_id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$doctorHospital = $stmt->fetchColumn() ?: null;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
+        // [جديد] المستشفى: من الفورم، وإلا من مستشفى الدكتور
+        $hospital_id = !empty($_POST['hospital_id']) ? (int)$_POST['hospital_id'] : $doctorHospital;
+        if (!$hospital_id) {
+            throw new Exception('يرجى اختيار المستشفى.');
+        }
+
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare("INSERT INTO BloodRequests (doctor_id, patient_name, patient_blood_type, units_needed, urgency) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$_SESSION['user_id'], $_POST['patient_name'], $_POST['patient_blood_type'], $_POST['units_needed'], $_POST['urgency']]);
+        // [معدّل] إضافة hospital_id في الـ INSERT
+        $stmt = $pdo->prepare("INSERT INTO BloodRequests (doctor_id, hospital_id, patient_name, patient_blood_type, units_needed, urgency) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$_SESSION['user_id'], $hospital_id, $_POST['patient_name'], $_POST['patient_blood_type'], $_POST['units_needed'], $_POST['urgency']]);
         $request_id = $pdo->lastInsertId();
 
         if (!empty($_POST['selected_bags'])) {
@@ -22,12 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->commit();
         $success = "تم إرسال الطلب #$request_id بنجاح!";
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) $pdo->rollBack();
         $error = $e->getMessage();
     }
 }
 
 $patientBloodType = $_GET['blood_type'] ?? 'A+';
+// [جديد] المستشفى المحدد (يبقى محفوظًا عند تغيير الفصيلة)
+$selectedHospital = $_GET['hospital_id'] ?? $_POST['hospital_id'] ?? $doctorHospital;
 $compatibleTypes = getCompatibleTypes($patientBloodType);
 $placeholders = implode(',', array_fill(0, count($compatibleTypes), '?'));
 
@@ -51,7 +66,7 @@ require_once '../../includes/header.php';
         <h3 class="mb-4"><i class="fas fa-hand-holding-medical text-danger"></i> طلب كيس دم</h3>
 
         <?php if ($success): ?><div class="alert alert-success"><i class="fas fa-check-circle"></i> <?php echo $success; ?></div><?php endif; ?>
-        <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
+        <?php if ($error): ?><div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
 
         <form method="POST">
             <div class="card shadow-sm p-4 mb-4">
@@ -63,7 +78,7 @@ require_once '../../includes/header.php';
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label">فصيلة الدم المطلوبة *</label>
-                        <select name="patient_blood_type" class="form-select" onchange="window.location.href='add.php?blood_type='+this.value" required>
+                        <select name="patient_blood_type" class="form-select" onchange="window.location.href='add.php?blood_type='+encodeURIComponent(this.value)+'&hospital_id='+encodeURIComponent(document.getElementById('hospital_id').value)" required>
                             <?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $bt): ?>
                             <option value="<?php echo $bt; ?>" <?php echo ($patientBloodType==$bt)?'selected':''; ?>><?php echo $bt; ?></option>
                             <?php endforeach; ?>
@@ -79,6 +94,16 @@ require_once '../../includes/header.php';
                             <option value="Normal">عادي</option>
                             <option value="Urgent">مستعجل</option>
                             <option value="Critical">حرج</option>
+                        </select>
+                    </div>
+                    <!-- [جديد] اختيار المستشفى -->
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">المستشفى *</label>
+                        <select name="hospital_id" id="hospital_id" class="form-select" required>
+                            <option value="">-- اختر المستشفى --</option>
+                            <?php foreach ($hospitals as $h): ?>
+                            <option value="<?php echo $h['hospital_id']; ?>" <?php echo ($selectedHospital == $h['hospital_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($h['hospital_name']); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                 </div>

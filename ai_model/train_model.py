@@ -30,7 +30,7 @@ if db:
 if db is None or len(df) < 10:
     print("Generating synthetic training data...")
     data = []
-    for month in pd.date_range('2024-01', '2025-12', freq='M'):
+    for month in pd.date_range('2024-01', '2025-12', freq='ME'):
         for bt in ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']:
             base = np.random.randint(5, 30)
             data.append({'month': month.strftime('%Y-%m'), 'patient_blood_type': bt, 'request_count': base, 'total_units': base * np.random.randint(1, 4)})
